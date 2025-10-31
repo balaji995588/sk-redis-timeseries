@@ -4,6 +4,7 @@ import java.sql.Time;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -156,5 +157,70 @@ public final class Utility {
 			LOGGER.error(e.getMessage());
 		}
 		return unixtime;
+	}
+
+	public static long getExchangeStartTime(int exchange) {
+		Calendar c = Calendar.getInstance();
+		switch (exchange) {
+		case 11:
+		case 12:
+		case 21:
+		case 22:
+			c.set(Calendar.HOUR_OF_DAY, 9);
+			c.set(Calendar.MINUTE, 15);
+			c.set(Calendar.SECOND, 0);
+			break;
+
+		case 32:
+		case 42:
+		case 13:
+		case 23:
+		case 33:
+			c.set(Calendar.HOUR_OF_DAY, 9);
+			c.set(Calendar.MINUTE, 0);
+			c.set(Calendar.SECOND, 0);
+			break;
+
+		default:
+			c.set(Calendar.HOUR_OF_DAY, 9);
+			c.set(Calendar.MINUTE, 15);
+			c.set(Calendar.SECOND, 0);
+			break;
+		}
+		return c.getTimeInMillis() / 1000;
+	}
+
+	public static long getExchangeCloseTimeInMilliSec(int exchange) {
+		Calendar c = Calendar.getInstance();
+		switch (exchange) {
+		case 11:
+		case 12:
+		case 21:
+		case 22:
+			c.set(Calendar.HOUR_OF_DAY, 15);
+			c.set(Calendar.MINUTE, 30);
+			c.set(Calendar.SECOND, 0);
+			break;
+		case 13:
+		case 33:
+			c.set(Calendar.HOUR_OF_DAY, 17);
+			c.set(Calendar.MINUTE, 0);
+			c.set(Calendar.SECOND, 0);
+			break;
+
+		case 32:
+		case 42:
+			c.set(Calendar.HOUR_OF_DAY, 23);
+			c.set(Calendar.MINUTE, 30);
+			c.set(Calendar.SECOND, 0);
+			break;
+
+		default:
+			c.set(Calendar.HOUR_OF_DAY, 15);
+			c.set(Calendar.MINUTE, 30);
+			c.set(Calendar.SECOND, 0);
+			break;
+		}
+		return c.getTimeInMillis() / 1000;
 	}
 }

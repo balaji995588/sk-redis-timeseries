@@ -4,12 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import com.redis_timeseries.domain.IntradayChartMapRepo;
+import com.redis_timeseries.service.RedisTimeSeriesService;
 import com.redis_timeseries.utility.PropertyContainer;
 import com.redis_timeseries.utility.Utility;
 
@@ -32,8 +36,12 @@ public class ExchangeServer {
 
 	transient Queue<GraphSummerizedTicks> GraphSummeryTicksQueue = new Queue<GraphSummerizedTicks>();
 
+	public ConcurrentMap<Integer, IntradayChartMapRepo> intraChartdataRepo = new ConcurrentHashMap<Integer, IntradayChartMapRepo>();
+
 	List<Thread> feedProcess = new ArrayList<Thread>();
 	List<Thread> threadProcess = new ArrayList<Thread>();
+	List<Thread> feedInfoProcess = new ArrayList<Thread>();
+	List<Thread> intraChartProcess = new ArrayList<Thread>();
 
 	private static final Logger logger = LogManager.getLogger();
 
@@ -47,6 +55,8 @@ public class ExchangeServer {
 		feedData = new ConcurrentHashMap<Integer, FeedInfo>();
 		AllFeedInfoQ = new Queue<FeedInfo>();
 		AllFeedQ = new Queue<FPSData>();
+		intraChartdataRepo = new ConcurrentHashMap<Integer, IntradayChartMapRepo>();
+
 	}
 
 	Runnable processFPSFeed = new Runnable() {
@@ -147,26 +157,31 @@ public class ExchangeServer {
 
 	};
 
+	
+	RedisTimeSeriesService redisTimeSeriesService=RedisTimeSeriesService.getInstance();
+	
 	Runnable processIntradayChart = new Runnable() {
 		@Override
 		public void run() {
 			while (true) {
 				try {
-					GraphSummerizedTicks data = GraphSummeryTicksQueue.DeQueue();		
-					
-						if (!intraChartdataRepo.containsKey(data.getScripCode())) {
-							IntradayChartMapRepo newData = new IntradayChartMapRepo();
-							intraChartdataRepo.put(data.getScripCode(), newData);
-						}
-						intraChartdataRepo.get(data.getScripCode()).processIntraChart(data);		
-					
+					GraphSummerizedTicks data = GraphSummeryTicksQueue.DeQueue();
+
+//					if (!intraChartdataRepo.containsKey(data.getScripCode())) {
+//						IntradayChartMapRepo newData = new IntradayChartMapRepo();
+//						intraChartdataRepo.put(data.getScripCode(), newData);
+//					}
+//					intraChartdataRepo.get(data.getScripCode()).processIntraChart(data);
+					redisTimeSeriesService.addGraphTick(data);
+
 				} catch (Exception e) {
-					DFTLogContainer.getInstance().setAppLogByType(Log4jEnum.INFO, e.getMessage(), LOGGER);
+					e.printStackTrace();
+					logger.error(e.getMessage());
 				}
 			}
 		}
 	};
-	
+
 //	public ConcurrentMap<Integer, IntradayChartMapRepo> intraChartdataRepo = new ConcurrentHashMap<Integer, IntradayChartMapRepo>();
 //
 //
@@ -204,64 +219,199 @@ public class ExchangeServer {
 		logger.info(exchange + " Started...");
 	}
 
+//	public void startThread() {
+//
+//		threadProcess = new ArrayList<Thread>();
+//		int processThread = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
+//		if (exchange != 11 && exchange != 12) {
+//			processThread = (processThread - 4) > 0 ? processThread - 4 : 5;
+//		}
+//
+//		for (int i = 0; i < processThread; i++) {
+//			String name = exchange + " Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE");
+//			Thread old = Utility.getThreadByName(name);
+//			if (old != null) {
+//				if (old.isAlive())
+//					old.interrupt();
+//				logger.info(exchange + " Process Daemon Thread Stoped...");
+//			}
+//			Thread t = new Thread(processFeed);
+//			t.setName(exchange + " Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE"));
+//			t.setDaemon(true);
+//			threadProcess.add(t);
+//		}
+//
+//		for (Thread thread : threadProcess) {
+//			try {
+//				thread.start();
+//			} catch (Exception e) {
+//				// TODO: handle exception
+//			}
+//		}
+//
+//		feedProcess = new ArrayList<Thread>();
+//		int feedProcessThread = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
+//		if (exchange != 11 && exchange != 12) {
+//			feedProcessThread = (feedProcessThread - 4) > 0 ? feedProcessThread - 4 : 5;
+//		}
+//
+//		for (int i = 0; i < feedProcessThread; i++) {
+//			String name = exchange + " FPS Feed Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE");
+//			Thread old = Utility.getThreadByName(name);
+//			if (old != null) {
+//				if (old.isAlive())
+//					old.interrupt();
+//				logger.info(exchange + " Process Daemon Thread Stoped...");
+//			}
+//			Thread t = new Thread(processFPSFeed);
+//			t.setName(exchange + " FPS Feed Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE"));
+//			t.setDaemon(true);
+//			feedProcess.add(t);
+//		}
+//		for (Thread thread : feedProcess) {
+//			try {
+//				thread.start();
+//			} catch (Exception e) {
+//				// TODO: handle exception
+//			}
+//		}
+//		
+//		feedInfoProcess = new ArrayList<Thread>();
+//		int feedInfoProcessThread = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
+//		if (exchange != 11 && exchange != 12) {
+//			feedInfoProcessThread = (feedInfoProcessThread - 4) > 0 ? feedInfoProcessThread - 4 : 5;
+//		}
+//
+//		for (int i = 0; i < feedInfoProcessThread; i++) {
+//			String name = exchange + " FPS Feed Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE");
+//			Thread old = Utility.getThreadByName(name);
+//			if (old != null) {
+//				if (old.isAlive())
+//					old.interrupt();
+//				logger.info(exchange + " Process Daemon Thread Stoped...");
+//			}
+//			Thread t = new Thread(processFeedInfo);
+//			t.setName(exchange + " FPS Feed Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE"));
+//			t.setDaemon(true);
+//			feedProcess.add(t);
+//		}
+//		for (Thread thread : feedProcess) {
+//			try {
+//				thread.start();
+//			} catch (Exception e) {
+//				// TODO: handle exception
+//			}
+//		}
+//		
+//		int intraChartProcessThread = 0;
+//		if (exchange == 11 || exchange == 12) {
+//			intraChartProcessThread = 10;
+//		} else {
+//			intraChartProcessThread = 5;
+//		}
+//
+//		for (int i = 0; i < intraChartProcessThread; i++) {
+//			String name = exchange + " FPS IntraChart Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE");
+//			Thread old = Utility.getThreadByName(name);
+//			if (old != null) {
+//				if (old.isAlive())
+//					old.interrupt();
+//				logger.info(
+//						exchange + " Process Daemon Thread Stoped...");
+//			}
+//			Thread t = new Thread(processIntradayChart);
+//			t.setName(exchange + " FPS IntraChart Process Daemon Thread " + i + "-"
+//					+ PropertyContainer.getInstance().config.get("INSTANCE"));
+//			t.setDaemon(true);
+//			intraChartProcess.add(t);
+//		}
+//		for (Thread thread : intraChartProcess) {
+//			try {
+//				thread.start();
+//			} catch (Exception e) {
+//				// TODO: handle exception
+//			}
+//		}
+//	}
+
 	public void startThread() {
+		final String instance = PropertyContainer.getInstance().config.get("INSTANCE");
+		final int baseThreadCount = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
+		final boolean isSpecialExchange = (exchange == 11 || exchange == 12);
 
-		threadProcess = new ArrayList<Thread>();
-		int processThread = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
-		if (exchange != 11 && exchange != 12) {
-			processThread = (processThread - 4) > 0 ? processThread - 4 : 5;
-		}
+		// Adjust thread count: reduce by 4 for non-special exchanges, min 5
+		int adjustedThreadCount = isSpecialExchange ? baseThreadCount : Math.max(baseThreadCount - 4, 5);
 
-		for (int i = 0; i < processThread; i++) {
-			String name = exchange + " Process Daemon Thread " + i + "-"
-					+ PropertyContainer.getInstance().config.get("INSTANCE");
-			Thread old = Utility.getThreadByName(name);
-			if (old != null) {
-				if (old.isAlive())
-					old.interrupt();
-				logger.info(exchange + " Process Daemon Thread Stoped...");
+		// Initialize thread lists
+		threadProcess = new ArrayList<>();
+		feedProcess = new ArrayList<>();
+		feedInfoProcess = new ArrayList<>();
+		intraChartProcess = new ArrayList<>();
+
+		// === 1. Process Daemon Threads ===
+		startThreadGroup(threadProcess, adjustedThreadCount, exchange + " Process Daemon Thread ", processFeed,
+				"Process Daemon Thread");
+
+		// === 2. FPS Feed Process Threads ===
+		startThreadGroup(feedProcess, adjustedThreadCount, exchange + " FPS Feed Process Daemon Thread ",
+				processFPSFeed, "FPS Feed Process Daemon Thread");
+
+		// === 3. Feed Info Process Threads ===
+		startThreadGroup(feedInfoProcess, adjustedThreadCount, exchange + " FPS Feed Info Process Daemon Thread ",
+				processFeedInfo, "FPS Feed Info Process Daemon Thread");
+
+		// === 4. IntraChart Process Threads (Fixed count) ===
+		int intraChartCount = isSpecialExchange ? 10 : 5;
+		startThreadGroup(intraChartProcess, intraChartCount, exchange + " FPS IntraChart Process Daemon Thread ",
+				processIntradayChart, "FPS IntraChart Process Daemon Thread");
+	}
+
+	/**
+	 * Reusable method to start a group of daemon threads with cleanup.
+	 */
+	private void startThreadGroup(List<Thread> threadList, int count, String namePrefix, Runnable target,
+			String logTypeName) {
+
+		final String instance = PropertyContainer.getInstance().config.get("INSTANCE");
+
+		for (int i = 0; i < count; i++) {
+			String threadName = namePrefix + i + "-" + instance;
+
+			// Terminate existing thread if running
+			Thread oldThread = Utility.getThreadByName(threadName);
+			if (oldThread != null) {
+				if (oldThread.isAlive()) {
+					logger.info("{} [{}] is still running. Interrupting...", logTypeName, threadName);
+					oldThread.interrupt();
+					try {
+						oldThread.join(TimeUnit.SECONDS.toMillis(5)); // Wait up to 5s
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				}
+				logger.info("{} [{}] stopped.", logTypeName, threadName);
 			}
-			Thread t = new Thread(processFeed);
-			t.setName(exchange + " Process Daemon Thread " + i + "-"
-					+ PropertyContainer.getInstance().config.get("INSTANCE"));
-			t.setDaemon(true);
-			threadProcess.add(t);
+
+			// Create and configure new thread
+			Thread thread = new Thread(target, threadName);
+			thread.setDaemon(true);
+			threadList.add(thread);
 		}
 
-		for (Thread thread : threadProcess) {
+		// Start all threads in the group
+		for (Thread thread : threadList) {
 			try {
 				thread.start();
+				logger.debug("Started thread: {}", thread.getName());
 			} catch (Exception e) {
-				// TODO: handle exception
-			}
-		}
-
-		feedProcess = new ArrayList<Thread>();
-		int feedProcessThread = Integer.parseInt(PropertyContainer.getInstance().config.get("ProcessThread"));
-		if (exchange != 11 && exchange != 12) {
-			feedProcessThread = (feedProcessThread - 4) > 0 ? feedProcessThread - 4 : 5;
-		}
-
-		for (int i = 0; i < feedProcessThread; i++) {
-			String name = exchange + " FPS Feed Process Daemon Thread " + i + "-"
-					+ PropertyContainer.getInstance().config.get("INSTANCE");
-			Thread old = Utility.getThreadByName(name);
-			if (old != null) {
-				if (old.isAlive())
-					old.interrupt();
-				logger.info(exchange + " Process Daemon Thread Stoped...");
-			}
-			Thread t = new Thread(processFPSFeed);
-			t.setName(exchange + " FPS Feed Process Daemon Thread " + i + "-"
-					+ PropertyContainer.getInstance().config.get("INSTANCE"));
-			t.setDaemon(true);
-			feedProcess.add(t);
-		}
-		for (Thread thread : feedProcess) {
-			try {
-				thread.start();
-			} catch (Exception e) {
-				// TODO: handle exception
+				logger.error("Failed to start thread: {}", thread.getName(), e);
 			}
 		}
 	}
