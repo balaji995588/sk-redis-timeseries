@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package feed;
+
+option java_package = "com.redis_timeseries.feed";
+option java_outer_classname = "FeedProto";
+option java_multiple_files = true;
+
+service FeedGrpcService {
+    rpc SubscribeLTP (SubscribeRequest) returns (stream LTPDataResponse);
+}
+
+message SubscribeRequest {
+    string exchange = 1; // Exchange code, e.g., "NC"
+}
+
+message LTPData {
+    string exchange = 1;  // Exchange name
+    int32 scripcode = 2; // Scrip code
+    int32 ltp = 3;       // Last traded price
+    int64 ltt = 4;       // Last trade time
+}
+
+message LTPDataResponse {
+    map<string, LTPData> ltp_data_map = 1; // Map with string key (e.g., scripcode or exchange-scripcode) to LTPData
+}
